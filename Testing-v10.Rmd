@@ -1,0 +1,254 @@
+---
+title: "Xiaotian Ding\ Ray Liu\ Jie Gu\ De Lu"
+output: html_notebook
+---
+
+```{r}
+#strandized for test data
+yt9=as.matrix(test$`V-9`)
+colnames(yt9)=c("V-9")
+yt10=as.matrix(test$`V-10`)
+colnames(yt10)=c("V-10")
+test.v9<- cbind(test[1:27],yt9)
+test.v10<- cbind(test[1:27],yt10)
+for(i in 2:27)
+ { 
+  test.v9[,i] <-(test[,i]-mean(test[,i])) /sd(test[,i])
+}
+for(i in 2:27)
+ { 
+  test.v10[,i] <-(test[,i]-mean(test[,i])) /sd(test[,i])
+}
+```
+
+```{r}
+# scatter plot & cor
+fitv10 <- lm(test$`V-10`~ ., data = test.v10)
+summary(fitv10)
+cor(test.v10[,c(2:28)])
+```
+
+
+```{r}
+# Lasso to determine variable
+library("glmnet")
+x.simple=as.matrix(test.v10[,2:27])
+y=test.v10$`V-10`
+fitlasso=glmnet(x.simple,y,alpha = 1)
+plot(fitlasso)
+cv.lasso=cv.glmnet(x.simple,y)
+plot(cv.lasso)
+coef(cv.lasso)
+```
+```{r}
+# Model 3
+# added variable factor to determine ^
+datamodel3=data.frame(test.v10[,c(4,5,7,21,28)])
+fitmodel3=lm(datamodel3$V.10~.,data = datamodel3)
+colData3 <- list("`V-4`", "`V-5`", "`V-7`", "`V-23`")
+names(colData3) <- c("`V-4`", "`V-5`", "`V-7`", "`V-23`")
+removeXList <- colData3
+
+for (rmX in removeXList){
+  tmpV <- colData3
+  tmpV[[rmX]] = NULL
+  test.Rv=lm(as.formula(paste("`V-10` ~", paste(tmpV, collapse = "+"))), data = test.v10)
+  res.Rv= test.Rv$residuals
+  
+  test.Fxv=lm(as.formula(paste(paste(rmX," ~"), paste(tmpV, collapse = "+"))), data = test.v10)
+  res.Fxv= test.Fxv$residuals
+
+  plot(res.Fxv,res.Rv,main = rmX)
+}
+```
+
+
+
+
+```{r}
+# Weighted tranformation for model 3
+wts <- 1/fitted(lm(abs(residuals(fitmodel3)) ~ ., data = datamodel3))^2
+
+fitmodel3weight <- lm(datamodel3$V.10~ .,data = datamodel3, weights=wts)
+datamodel3weight=cbind(datamodel3[1:4],datamodel3$V.10*wts)
+summary(fitmodel3weight)$r.squared
+summary(fitmodel3weight)$adj.r.squared
+```
+```{r}
+#Brown test whether constant variance and transformation for Model 3 after tranformation
+resmodel3b=fitmodel3weight $residuals
+mmodel3=mean(datamodel3weight$`datamodel3$V.10 * wts`)
+nmodel3=dim(datamodel3weight)[1]
+#1. Break the residuals into two groups. 
+Group1 <- resmodel3b[datamodel3weight$`datamodel3$V.10 * wts`<mmodel3]
+Group2 <-resmodel3b[datamodel3weight$`datamodel3$V.10 * wts`>=mmodel3]
+
+#2. Obtain the median of each group, using the commands: 
+M1 <- median(Group1) 
+M2 <- median(Group2) 
+
+#3. Obtain the mean absolute deviation for each group, using the commands: 
+D1 <- sum( abs( Group1 - M1 )) / length(Group1) 
+D2 <- sum( abs( Group2 - M2 )) / length(Group2) 
+
+#4. Calculate the pooled standard error, using the command: 
+s <- sqrt( ( sum( ( abs(Group1 - M1) - D1 )^2 ) + sum( ( abs(Group2 - M2) - D2 )^2 ) ) / (nmodel3-2) ) 
+
+#5. Finally, calculate the Brown-Forsythe test statistic, using the command: 
+t <- ( D1 - D2 ) / ( s * sqrt( 1/length(Group1) + 1/length(Group2) ) ) 
+t
+#6 Once you obtain this value, you can compare it to the critical value for any given alpha level to determine whether or not to conclude constancy of error variance, 
+# or you can find its P-value. 
+alpha <- 0.05
+qt(1-alpha/2, nmodel3-p1-1)   # find the catical value
+
+# And the P-value can be found by typing: 
+ 2*(1-pt( abs(t), nmodel3-p1-1))
+```
+
+```{r}
+#y outlier for model3
+Case <- c(1:nmodel3) 
+plot(Case, rstudent(fitmodel3weight), type="l") 
+text(Case, rstudent(fitmodel3weight), Case) 
+alpha <- 0.05 
+crit <- qt(1-alpha/2/nmodel3, nmodel3-p1-1) 
+youtlier3=which(abs(rstudent(fitmodel3weight)) >=crit )
+```
+
+
+```{r}
+#x outlier for model3
+X <- as.matrix(cbind(rep(1,nmodel3), datamodel3[1:4]))
+H <- X%*%solve(t(X)%*%X, tol=1e-20)%*%t(X) 
+leverage <- hatvalues(fitmodel3weight) 
+plot(Case, leverage, type="l") 
+text(Case, leverage, Case) 
+abline(h=2*p1/nmodel3, col=2)
+xoutlier1=data.frame(which(leverage>2*p1/nmodel3) )
+xoutlier1
+```
+
+```{r}
+#test whether outlier in the extend of the model3
+IM3=influence.measures(fitmodel3weight)
+IM3
+dxoutlier3=union(which(IM3$infmat[,8]>0.2),which(IM3$infmat[,6]>2*sqrt(p1/nmodel3)))
+#combine x and y outlier
+finaloutlier3=union(dxoutlier3,youtlier3)
+datamodel3Final=datamodel3[-c(finaloutlier3),]
+# get model1 without x y outlier
+fitmodel3x1=lm(datamodel3Final$V.10~.,data = datamodel3Final)
+wtsx3 <- 1/fitted(lm(abs(residuals(fitmodel3x1)) ~ ., data = datamodel3Final))^2
+Fmodel3=lm(datamodel3Final$V.10~., data = datamodel3Final,weights =wtsx3)
+# R2 & adj R2 for model3 test
+summary(Fmodel3)$r.squared
+summary(Fmodel3)$adj.r.squared
+
+```
+
+
+```{r}
+# add ^2 for model4
+Data.new3 <- cbind(test.v10$`V-4`, test.v10$`V-5`, test.v10$`V-7`, test.v10$ `V-23`)
+x3.new=as.matrix(cbind(Data.new3,((Data.new3)^2)[,-2]))
+colnames(x3.new)=c("V-4","V-5","V-7","V-23","V-4.2","V-7.2","V-23.2")
+```
+
+
+
+```{r}
+# Model 4
+testv14 = data.frame(x3.new,y)
+datamodel4=data.frame(testv14[,c(2,8)])
+datamodel4
+fitmodel4=lm(datamodel4$y~.,data = datamodel4)
+summary(fitmodel4)$r.squared
+summary(fitmodel4)$adj.r.squared
+```
+
+
+```{r}
+# Weighted tranformation for model 4
+wts <- 1/fitted(lm(abs(residuals(fitmodel4)) ~ ., data = datamodel4))^2
+
+fitmodel4weight <- lm(datamodel4$y~ .,data = datamodel4, weights=wts)
+datamodel4weight=cbind(datamodel4[1],datamodel4$y*wts)
+summary(fitmodel4weight)$r.squared
+summary(fitmodel4)$adj.r.squared
+```
+
+```{r}
+#Brown test whether constant variance and transformation for Model 2 after tranformation
+resmode22b=fitmodel4weight$residuals
+mmodel4=mean(datamodel4weight$`datamodel4$y * wts`)
+nmodel4=dim(datamodel4weight)[1]
+#1. Break the residuals into two groups. 
+Group6 <- resmode22b[datamodel4weight$`datamodel4$y * wts`<mmodel4]
+Group7 <- resmode22b[datamodel4weight$`datamodel4$y * wts`>=mmodel4]
+
+#2. Obtain the median of each group, using the commands: 
+M1 <- median(Group6) 
+M2 <- median(Group7) 
+
+#3. Obtain the mean absolute deviation for each group, using the commands: 
+D1 <- sum( abs( Group6 - M1 )) / length(Group6) 
+D2 <- sum( abs( Group7 - M2 )) / length(Group7) 
+
+#4. Calculate the pooled standard error, using the command: 
+s <- sqrt( ( sum( ( abs(Group6 - M1) - D1 )^2 ) + sum( ( abs(Group7 - M2) - D2 )^2 ) ) / (nmodel4-2) ) 
+
+#5. Finally, calculate the Brown-Forsythe test statistic, using the command: 
+t <- ( D1 - D2 ) / ( s * sqrt( 1/length(Group6) + 1/length(Group7) ) ) 
+t
+#6 Once you obtain this value, you can compare it to the critical value for any given alpha level to determine whether or not to conclude constancy of error variance, 
+# or you can find its P-value. 
+alpha <- 0.05
+qt(1-alpha/2, nmodel4-5)   # find the catical value
+
+# And the P-value can be found by typing: 
+ 2*(1-pt( abs(t), nmodel4-5))
+```
+
+```{r}
+#y outlier
+Case <- c(1:nmodel4) 
+plot(Case, rstudent(fitmodel4weight), type="l") 
+text(Case, rstudent(fitmodel4weight), Case) 
+alpha <- 0.01
+p=4
+crit <- qt(1-alpha/2/nmodel4, nmodel4-p-1) 
+youtlier=which(abs(rstudent(fitmodel4weight)) >=crit )
+```
+
+```{r}
+#x outlier
+X <- as.matrix(cbind(rep(1,nmodel4), datamodel4weight[1]))
+H <- X%*%solve(t(X)%*%X,tol=1e-30)%*%t(X) 
+leverage <- hatvalues(fitmodel4weight) 
+plot(Case, leverage, type="l") 
+text(Case, leverage, Case) 
+abline(h=2*p/nmodel4, col=2)
+xoutlier=data.frame(which(leverage>2*p/nmodel4) )
+xoutlier
+```
+
+
+```{r}
+#test whether outlier in the extend of the model
+IM4=influence.measures(fitmodel4weight)
+IM4
+dxoutlier=union(which(IM4$infmat[,5]>0.2),which(IM4$infmat[,3]>2*sqrt(p/nmodel4)))
+#combine x and y outlier
+finaloutlier=union(dxoutlier,youtlier)
+datamodel4Final=datamodel4[-c(finaloutlier),]
+# get model2 without x y outlier
+fitmodel4x2=lm(datamodel4Final$y~.,data = datamodel4Final)
+wtsx2 <- 1/fitted(lm(abs(residuals(fitmodel4x2)) ~ ., data = datamodel4Final))^2
+Fmodel4=lm(datamodel4Final$y~., data = datamodel4Final,weights =wtsx2)
+# R2 & adj R2 for model1
+summary(Fmodel4)$r.squared
+summary(Fmodel4)$adj.r.squared
+```
+
+
