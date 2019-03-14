@@ -1,0 +1,318 @@
+---
+title: "Final project for test"
+author: "Xiaotian Ding"
+date: "2019/3/13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Import the data and pretreatment
+load("~/Desktop/Study in NU/Winter/Regression analysis/Final/train & test.RData")
+#strandized for test data
+yt9=as.matrix(test$`V-9`)
+colnames(yt9)=c("V-9")
+yt10=as.matrix(test$`V-10`)
+colnames(yt10)=c("V-10")
+test.v9<- cbind(test[1:27],yt9)
+test.v10<- cbind(test[1:27],yt10)
+for(i in 2:27)
+ { 
+  test.v9[,i] <-(test[,i]-mean(test[,i])) /sd(test[,i])
+}
+for(i in 2:27)
+ { 
+  test.v10[,i] <-(test[,i]-mean(test[,i])) /sd(test[,i])
+}
+
+
+```
+
+
+
+```{r}
+# added variable factor to determine ^
+datamodel1=data.frame(test.v9[,c(4,7,8,14,15,16,18,19,21,24,26,27,28)])
+# Model 1
+fitmodel1=lm(datamodel1$V.9~.,data = datamodel1)
+summary(fitmodel1)$r.squared
+summary(fitmodel1)$adj.r.squared
+colData <- list("`V-4`", "`V-7`", "`V-8`", "`V-16`",  
+    "`V-17`", "`V-18`", "`V-20`", "`V-21`", "`V-23`", "`V-26`", "`V-28`", "`V-29`")
+names(colData) <- c("`V-4`", "`V-7`", "`V-8`", "`V-16`",  
+    "`V-17`", "`V-18`", "`V-20`", "`V-21`", "`V-23`", "`V-26`", "`V-28`", "`V-29`")
+removeXList <- colData
+
+for (rmX in removeXList){
+  tmpV <- colData
+  tmpV[[rmX]] = NULL
+  test.Rv=lm(as.formula(paste("`V-9` ~", paste(tmpV, collapse = "+"))), data = test.v9)
+  res.Rv= test.Rv$residuals
+  
+  test.Fxv=lm(as.formula(paste(paste(rmX," ~"), paste(tmpV, collapse = "+"))), data = test.v9)
+  res.Fxv= test.Fxv$residuals
+
+  plot(res.Fxv,res.Rv,main = rmX)
+}
+```
+```{r}
+#Brown test whether constant variance and transformation for Model 1
+resmodel1=fitmodel1$residuals
+mmodel1=mean(datamodel1$V.9)
+nmodel1=dim(datamodel1)[1]
+p1=13
+#1. Break the residuals into two groups. 
+Group1 <- resmodel1[datamodel1$V.9<mmodel1]
+Group2 <-resmodel1[datamodel1$V.9>=mmodel1]
+
+#2. Obtain the median of each group, using the commands: 
+M1 <- median(Group1) 
+M2 <- median(Group2) 
+
+#3. Obtain the mean absolute deviation for each group, using the commands: 
+D1 <- sum( abs( Group1 - M1 )) / length(Group1) 
+D2 <- sum( abs( Group2 - M2 )) / length(Group2) 
+
+#4. Calculate the pooled standard error, using the command: 
+s <- sqrt( ( sum( ( abs(Group1 - M1) - D1 )^2 ) + sum( ( abs(Group2 - M2) - D2 )^2 ) ) / (nmodel1-2) ) 
+
+#5. Finally, calculate the Brown-Forsythe test statistic, using the command: 
+ t <- ( D1 - D2 ) / ( s * sqrt( 1/length(Group1) + 1/length(Group2) ) ) 
+ t
+
+#6 Once you obtain this value, you can compare it to the critical value for any given alpha level to determine whether or not to conclude constancy of error variance, 
+# or you can find its P-value. 
+alpha <- 0.05
+qt(1-alpha/2, nmodel1-p1-1)   # find the catical value
+```
+
+
+```{r}
+# Weighted tranformation for model 1
+wts <- 1/fitted(lm(abs(residuals(fitmodel1)) ~ ., data = datamodel1))^2
+
+fitmodel1weight <- lm(datamodel1$V.9~ .,data = datamodel1, weights=wts)
+datamodel1weight=cbind(datamodel1[1:12],datamodel1$V.9*wts)
+summary(fitmodel1weight)$r.squared
+summary(fitmodel1weight)$adj.r.squared
+```
+
+
+
+
+```{r}
+#Brown test whether constant variance and transformation for Model 1 after tranformation
+resmodel1b=fitmodel1weight $residuals
+mmodel1=mean(datamodel1weight$`datamodel1$V.9 * wts`)
+nmodel1=dim(datamodel1weight)[1]
+#1. Break the residuals into two groups. 
+Group1 <- resmodel1b[datamodel1weight$`datamodel1$V.9 * wts`<mmodel1]
+Group2 <-resmodel1b[datamodel1weight$`datamodel1$V.9 * wts`>=mmodel1]
+
+#2. Obtain the median of each group, using the commands: 
+M1 <- median(Group1) 
+M2 <- median(Group2) 
+
+#3. Obtain the mean absolute deviation for each group, using the commands: 
+D1 <- sum( abs( Group1 - M1 )) / length(Group1) 
+D2 <- sum( abs( Group2 - M2 )) / length(Group2) 
+
+#4. Calculate the pooled standard error, using the command: 
+s <- sqrt( ( sum( ( abs(Group1 - M1) - D1 )^2 ) + sum( ( abs(Group2 - M2) - D2 )^2 ) ) / (nmodel1-2) ) 
+
+#5. Finally, calculate the Brown-Forsythe test statistic, using the command: 
+t <- ( D1 - D2 ) / ( s * sqrt( 1/length(Group1) + 1/length(Group2) ) ) 
+t
+#6 Once you obtain this value, you can compare it to the critical value for any given alpha level to determine whether or not to conclude constancy of error variance, 
+# or you can find its P-value. 
+alpha <- 0.05
+qt(1-alpha/2, nmodel1-p1-1)   # find the catical value
+
+# And the P-value can be found by typing: 
+ 2*(1-pt( abs(t), nmodel1-p1-1))
+
+```
+
+```{r}
+#y outlier for model1
+Case <- c(1:nmodel1) 
+plot(Case, rstudent(fitmodel1weight), type="l") 
+text(Case, rstudent(fitmodel1weight), Case) 
+alpha <- 0.05 
+crit <- qt(1-alpha/2/nmodel1, nmodel1-p1-1) 
+youtlier1=which(abs(rstudent(fitmodel1weight)) >=crit )
+```
+
+```{r}
+#x outlier for model1
+X <- as.matrix(cbind(rep(1,nmodel1), datamodel1[1:12]))
+H <- X%*%solve(t(X)%*%X, tol=1e-20)%*%t(X) 
+leverage <- hatvalues(fitmodel1weight) 
+plot(Case, leverage, type="l") 
+text(Case, leverage, Case) 
+abline(h=2*p1/nmodel1, col=2)
+xoutlier1=data.frame(which(leverage>2*p1/nmodel1) )
+xoutlier1
+```
+
+```{r}
+#test whether outlier in the extend of the model1
+IM1=influence.measures(fitmodel1weight)
+dxoutlier1=union(which(IM1$infmat[,16]>0.2),which(IM1$infmat[,14]>2*sqrt(p1/nmodel1)))
+#combine x and y outlier
+finaloutlier1=union(dxoutlier1,youtlier1)
+datamodel1Final=datamodel1[-c(finaloutlier1),]
+# get model1 without x y outlier
+fitmodel1x1=lm(datamodel1Final$V.9~.,data = datamodel1Final)
+wtsx1 <- 1/fitted(lm(abs(residuals(fitmodel1x1)) ~ ., data = datamodel1Final))^2
+Fmodel1=lm(datamodel1Final$V.9~., data = datamodel1Final,weights =wtsx1)
+# R2 & adj R2 for model1 test
+summary(Fmodel1)$r.squared
+summary(Fmodel1)$adj.r.squared
+
+```
+
+
+
+
+```{r}
+# add ^2 for model2
+Data.new <- cbind(test.v9$`V-4`, test.v9$`V-7`, test.v9$`V-8`, test.v9$ `V-16`, test.v9$`V-17`, test.v9$`V-18` ,test.v9$`V-20`,test.v9$`V-21`,test.v9$`V-23`, test.v9$`V-26`, test.v9$`V-28`, test.v9$`V-29`)
+x2.new=as.matrix(cbind(Data.new,((Data.new)^2)[,-3]))
+colnames(x2.new)=c("V-4","V-7","V-8","V-16","V-17","V-18","V-20","V-21","V-23","V-26","V-28","V-29","V-4.2","V-7.2","V-16.2","V-17.2","V-18.2","V-20.2","V-21.2","V-23.2","V-26.2","V-28.2","V-29.2")
+```
+
+
+```{r}
+# Model 2
+y=test.v9$`V-9`
+testv92 = data.frame(x2.new,y)
+datamodel2=data.frame(testv92[,c(1,2,3,9,14,16,17,18,20,24)])
+
+fitmodel2=lm(datamodel2$y~.,data = datamodel2)
+summary(fitmodel1)$r.squared
+summary(fitmodel1)$adj.r.squared
+```
+
+
+```{r}
+# Weighted tranformation for model 2
+wts <- 1/fitted(lm(abs(residuals(fitmodel2)) ~ ., data = datamodel2))^2
+
+fitmodel2weight <- lm(datamodel2$y~ .,data = datamodel2, weights=wts)
+datamodel2weight=cbind(datamodel2[1:9],datamodel2$y*wts)
+summary(fitmodel2weight)$r.squared
+summary(fitmodel2weight)$adj.r.squared
+```
+
+```{r}
+#Brown test whether constant variance and transformation for Model 2 after tranformation
+resmodel2b=fitmodel2weight$residuals
+mmodel2=mean(datamodel2weight$`datamodel2$y * wts`)
+nmodel2=dim(datamodel2weight)[1]
+#1. Break the residuals into two groups. 
+Group1 <- resmodel2b[datamodel2weight$`datamodel2$y * wts`<mmodel2]
+Group2 <-resmodel2b[datamodel2weight$`datamodel2$y * wts`>=mmodel2]
+
+#2. Obtain the median of each group, using the commands: 
+M1 <- median(Group1) 
+M2 <- median(Group2) 
+
+#3. Obtain the mean absolute deviation for each group, using the commands: 
+D1 <- sum( abs( Group1 - M1 )) / length(Group1) 
+D2 <- sum( abs( Group2 - M2 )) / length(Group2) 
+
+#4. Calculate the pooled standard error, using the command: 
+s <- sqrt( ( sum( ( abs(Group1 - M1) - D1 )^2 ) + sum( ( abs(Group2 - M2) - D2 )^2 ) ) / (nmodel2-2) ) 
+
+#5. Finally, calculate the Brown-Forsythe test statistic, using the command: 
+t <- ( D1 - D2 ) / ( s * sqrt( 1/length(Group1) + 1/length(Group2) ) ) 
+t
+#6 Once you obtain this value, you can compare it to the critical value for any given alpha level to determine whether or not to conclude constancy of error variance, 
+# or you can find its P-value. 
+alpha <- 0.05
+qt(1-alpha/2, nmodel2-17)   # find the catical value
+
+# And the P-value can be found by typing: 
+ 2*(1-pt( abs(t), nmodel2-17))
+```
+
+
+```{r}
+#y outlier
+Case <- c(1:nmodel2) 
+plot(Case, rstudent(fitmodel2weight), type="l") 
+text(Case, rstudent(fitmodel2weight), Case) 
+alpha <- 0.01
+p=10
+crit <- qt(1-alpha/2/nmodel2, nmodel2-p-1) 
+youtlier=which(abs(rstudent(fitmodel2weight)) >=crit )
+```
+
+```{r}
+#x outlier
+X <- as.matrix(cbind(rep(1,nmodel2), datamodel2weight[1:9]))
+H <- X%*%solve(t(X)%*%X,tol=1e-30)%*%t(X) 
+leverage <- hatvalues(fitmodel2weight) 
+plot(Case, leverage, type="l") 
+text(Case, leverage, Case) 
+abline(h=2*p/nmodel2, col=2)
+xoutlier=data.frame(which(leverage>2*p/nmodel2) )
+xoutlier
+```
+
+
+```{r}
+#test whether outlier in the extend of the model
+IM2=influence.measures(fitmodel2weight)
+dxoutlier=union(which(IM2$infmat[,13]>0.2),which(IM2$infmat[,11]>2*sqrt(p/nmodel2)))
+#combine x and y outlier
+finaloutlier=union(dxoutlier,youtlier)
+datamodel2Final=datamodel2[-c(finaloutlier),]
+# get model2 without x y outlier
+fitmodel2x2=lm(datamodel2Final$y~.,data = datamodel2Final)
+wtsx2 <- 1/fitted(lm(abs(residuals(fitmodel2x2)) ~ ., data = datamodel2Final))^2
+Fmodel2=lm(datamodel2Final$y~., data = datamodel2Final,weights =wtsx2)
+# R2 & adj R2 for model1
+summary(Fmodel2)$r.squared
+summary(Fmodel2)$adj.r.squared
+```
+
+```{r}
+#VIF
+# model 1
+data1Finalvif=datamodel1Final[,-13]
+vif1=rep(0:12)
+vif1[1]=1/(1-summary(lm(data1Finalvif$V.4~ .,data = data1Finalvif))$r.squared)
+vif1[2]=1/(1-summary(lm(data1Finalvif$V.7~.,data = data1Finalvif))$r.squared)
+vif1[3]=1/(1-summary(lm(data1Finalvif$V.8~.,data = data1Finalvif))$r.squared)
+vif1[4]=1/(1-summary(lm(data1Finalvif$V.16~.,data = data1Finalvif))$r.squared)
+vif1[5]=1/(1-summary(lm(data1Finalvif$V.17~.,data = data1Finalvif))$r.squared)
+vif1[6]=1/(1-summary(lm(data1Finalvif$V.18~.,data = data1Finalvif))$r.squared)
+vif1[7]=1/(1-summary(lm(data1Finalvif$V.20~.,data = data1Finalvif))$r.squared)
+vif1[8]=1/(1-summary(lm(data1Finalvif$V.21~.,data = data1Finalvif))$r.squared)
+vif1[9]=1/(1-summary(lm(data1Finalvif$V.23~.,data = data1Finalvif))$r.squared)
+vif1[10]=1/(1-summary(lm(data1Finalvif$V.26~.,data = data1Finalvif))$r.squared)
+vif1[11]=1/(1-summary(lm(data1Finalvif$V.28~.,data = data1Finalvif))$r.squared)
+vif1[12]=1/(1-summary(lm(data1Finalvif$V.29~.,data = data1Finalvif))$r.squared)
+vif1
+
+#model2
+data2Finalvif=datamodel2Final[,-10]
+vif2=rep(0:9)
+vif2[1]=1/(1-summary(lm(data2Finalvif$V.4~ .,data = data2Finalvif))$r.squared)
+vif2[2]=1/(1-summary(lm(data2Finalvif$V.7~ .,data = data2Finalvif))$r.squared)
+vif2[3]=1/(1-summary(lm(data2Finalvif$V.8~ .,data = data2Finalvif))$r.squared)
+vif2[4]=1/(1-summary(lm(data2Finalvif$V.23~ .,data = data2Finalvif))$r.squared)
+vif2[5]=1/(1-summary(lm(data2Finalvif$V.7.2~ .,data = data2Finalvif))$r.squared)
+vif2[6]=1/(1-summary(lm(data2Finalvif$V.17.2~ .,data = data2Finalvif))$r.squared)
+vif2[7]=1/(1-summary(lm(data2Finalvif$V.18.2~ .,data = data2Finalvif))$r.squared)
+vif2[8]=1/(1-summary(lm(data2Finalvif$V.20.2~ .,data = data2Finalvif))$r.squared)
+vif2[9]=1/(1-summary(lm(data2Finalvif$V.23.2~ .,data = data2Finalvif))$r.squared)
+
+vif2
+```
+
