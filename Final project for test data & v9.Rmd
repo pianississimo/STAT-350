@@ -1,6 +1,6 @@
 ---
 title: "Final project for test"
-author: "Xiaotian Ding"
+author: "Xiaotian Ding\ Ray Liu\ Jie Gu\ De Lu "
 date: "2019/3/13"
 output: html_document
 ---
@@ -11,7 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 # Import the data and pretreatment
-load("~/Desktop/Study in NU/Winter/Regression analysis/Final/train & test.RData")
+setwd("E:/2019/NU/350/final project")
+load("E:/2019/NU/350/final project/train & test.RData")
 #strandized for test data
 yt9=as.matrix(test$`V-9`)
 colnames(yt9)=c("V-9")
