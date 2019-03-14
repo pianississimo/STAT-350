@@ -11,8 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 # Import the data and pretreatment
-setwd("E:/2019/NU/350/final project")
-load("E:/2019/NU/350/final project/train & test.RData")
+load("~/Desktop/Study in NU/Winter/Regression analysis/Final/train & test.RData")
 Zipcode= as.factor(train$`V-1`)
 Zipcodetest=as.factor(test$`V-1`)
 #strandized for train
@@ -394,10 +393,4 @@ vif2[8]=1/(1-summary(lm(data2Finalvif$V.20.2~ .,data = data2Finalvif))$r.squared
 vif2[9]=1/(1-summary(lm(data2Finalvif$V.23.2~ .,data = data2Finalvif))$r.squared)
 
 vif2
-```
-
-```{r}
-# k-fold cross-validation for model1 by
-
-
 ```
