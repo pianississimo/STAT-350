@@ -80,7 +80,7 @@ cv.lasso=cv.glmnet(x.simple,y)
 plot(cv.lasso)
 coef(cv.lasso)
 ```
-* #### **Get Model1: \(E{Y_i}=1359.596+27.135X_4+93.943X_7+1132.142X_8+45.642X_{16}-701.545X_{17}-56.764X_{18}-4.572X_{20}+185.904X_{21}+61.793X_{23}+384.488X_{26}+28.513X_{28}+17.098X_{29}\)**
+* #### **Get Model1: \(E(Y_i)=1359.596+27.135X_4+93.943X_7+1132.142X_8+45.642X_{16}-701.545X_{17}-56.764X_{18}-4.572X_{20}+185.904X_{21}+61.793X_{23}+384.488X_{26}+28.513X_{28}+17.098X_{29}\)**
 * #### **Added-variable to determine which variables to be squared.**
 
 ```{r}
@@ -211,7 +211,7 @@ abline(h=2*p1/nmodel1, col=2)
 xoutlier1=data.frame(which(leverage>2*p1/nmodel1) )
 xoutlier1
 ```
-* #### **Model1.2 after delete the outliers:\(E{Y_i}=1383.507+12.823X_4+82.864X_7+1183.677X_8-12.875X_{16}-285.116X_{17}-44.619X_{18}-17.826X_{20}+7.342X_{21}+15.237X_{23}+146.327X_{26}+30.317X_{28}+114.095X_{29}\)**
+* #### **Model1.2 after delete the outliers:\(E(Y_i)=1383.507+12.823X_4+82.864X_7+1183.677X_8-12.875X_{16}-285.116X_{17}-44.619X_{18}-17.826X_{20}+7.342X_{21}+15.237X_{23}+146.327X_{26}+30.317X_{28}+114.095X_{29}\)**
 ```{r}
 #test whether outlier in the extend of the model1
 IM1=influence.measures(fitmodel1weight)
